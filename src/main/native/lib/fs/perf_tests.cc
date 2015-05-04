@@ -92,11 +92,13 @@ void n_threaded_linear_scan(hdfsFS fs, std::string path, int threadcount,
 
   std::vector<scanner> scanners;
   std::vector<std::thread> threads;
+  std::vector<hdfsFile> hdfsFiles;
 
   //spawn
   for(int i=0; i< threadcount; i++) {
     std::cout << "starting thread " << i << std::endl;
     hdfsFile file = hdfsOpenFile(fs, path.c_str(), 0, 0, 0, 0);
+    hdfsFiles.push_back(file);
     scanner s(fs, file, read_size, start, end);
     scanners.push_back(s);
     threads.push_back(std::thread(s));
@@ -106,7 +108,7 @@ void n_threaded_linear_scan(hdfsFS fs, std::string path, int threadcount,
   for(int i=0; i<threadcount; i++) {
     std::cout << "joining thread " << i << std::endl;
     threads[i].join();
-    //close file here
+    hdfsCloseFile(fs, hdfsFiles[i]);
   }
 
 }
