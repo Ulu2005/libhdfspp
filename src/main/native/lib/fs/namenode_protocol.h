@@ -33,6 +33,12 @@ class ClientNamenodeProtocol {
                            std::shared_ptr<::hadoop::hdfs::GetBlockLocationsResponseProto> response) {
     return engine_->Rpc("getBlockLocations", request, response);
   }
+
+  Status GetFileInfo(const ::hadoop::hdfs::GetFileInfoRequestProto *request,
+                     std::shared_ptr<::hadoop::hdfs::GetFileInfoResponseProto> response) {
+	return engine_->Rpc("getFileInfo", request, response);
+  }
+
  private:
   RpcEngine *engine_;
 };

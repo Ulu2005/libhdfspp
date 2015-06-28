@@ -99,6 +99,11 @@ struct hdfsFile_struct {
   }
 
   InputStream *inputStream;
+
+  //-----------------------------------------------------------------
+  //  Move operations to inside struct to hide reader implementation
+  //-----------------------------------------------------------------
+  ssize_t pread(void *buf, size_t nbyte, off_t offset);
 };
 
 

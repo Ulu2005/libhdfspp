@@ -22,6 +22,8 @@
 #include "common/wrapper.h"
 #include "libhdfs++/hdfs.h"
 
+#include <sys/types.h>
+
 namespace hdfs {
 
 class FileSystemImpl : public FileSystem {
@@ -34,6 +36,11 @@ class FileSystemImpl : public FileSystem {
   IoServiceImpl *io_service_;
   RpcEngine engine_;
   ClientNamenodeProtocol namenode_;
+
+ //utilities
+ public:
+  ::hadoop::hdfs::LocatedBlocksProto *getBlockLocations(const std::string &path);
+  int stat(const std::string &path, struct stat *buf);
 };
 
 class InputStreamImpl : public InputStream {

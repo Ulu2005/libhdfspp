@@ -24,6 +24,9 @@
 
 #include <limits>
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
 namespace hdfs {
 
 static const char kNamenodeProtocol[] = "org.apache.hadoop.hdfs.protocol.ClientProtocol";
@@ -86,5 +89,79 @@ Status FileSystemImpl::Open(const char *path, InputStream **isptr) {
   *isptr = new InputStreamImpl(this, &resp->locations());
   return Status::OK();
 }
+
+//fs util functions
+/*
+message HdfsFileStatusProto {
+  enum FileType {
+    IS_DIR = 1;
+    IS_FILE = 2;
+    IS_SYMLINK = 3;
+  }
+  required FileType fileType = 1;
+  required bytes path = 2;          // local name of inode encoded java UTF8
+  required uint64 length = 3;
+  required FsPermissionProto permission = 4;
+  required string owner = 5;
+  required string group = 6;
+  required uint64 modification_time = 7;
+  required uint64 access_time = 8;
+
+  // Optional fields for symlink
+  optional bytes symlink = 9;             // if symlink, target encoded java UTF8
+
+  // Optional fields for file
+  optional uint32 block_replication = 10 [default = 0]; // only 16bits used
+  optional uint64 blocksize = 11 [default = 0];
+  optional LocatedBlocksProto locations = 12;  // suppled only if asked by client
+
+  // Optional field for fileId
+  optional uint64 fileId = 13 [default = 0]; // default as an invalid id
+  optional int32 childrenNum = 14 [default = -1];
+  // Optional field for file encryption
+  optional FileEncryptionInfoProto fileEncryptionInfo = 15;
+
+  optional uint32 storagePolicy = 16 [default = 0]; // block storage policy id
+}
+
+*/
+
+
+
+int FileSystemImpl::stat(const std::string &path, struct stat *buf){
+  using ::hadoop::hdfs::GetFileInfoRequestProto;
+  using ::hadoop::hdfs::GetFileInfoResponseProto;
+
+  GetFileInfoResponseProto req;
+  auto resp = std::make_shared<GetFileInfoResponseProto>();
+
+  Status s = namenode_.GetFileInfo(&req, resp);
+  if (!s.ok()) {
+    //todo: set errno
+    return -1;
+  }
+
+
+  buf->dev_t     st_dev;      /* ID of device containing file */
+  buf->ino_t     = 1;         /* inode number */
+
+  const FsPermissionProto& = resp->fs_permission_proto();
+  
+  buf->mode_t    st_mode;     /* protection */
+  buf->nlink_t   = 1;         /* number of hard links */
+
+  std::string owner = resp->owner();
+  buf->uid_t     st_uid;         /* user ID of owner */
+
+  std::string group = resp->group()
+  buf->gid_t     st_gid;         /* group ID of owner */
+
+  buf->dev_t     = 0;        /* device ID (if special file) */
+  buf->off_t     = resp->length()  //st_size;        /* total size, in bytes */
+  buf->blksize_t = 1;                  //st_blksize;     /* blocksize for filesystem I/O */
+  buf->blkcnt_t  = 1;                  //st_blocks;      /* number of 512B blocks allocated */
+}
+
+
 
 }
