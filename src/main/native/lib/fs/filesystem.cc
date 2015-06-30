@@ -131,8 +131,9 @@ message HdfsFileStatusProto {
 int FileSystemImpl::stat(const std::string &path, struct stat *buf){
   using ::hadoop::hdfs::GetFileInfoRequestProto;
   using ::hadoop::hdfs::GetFileInfoResponseProto;
+  using ::hadoop::hdfs::FsPermissionProto;
 
-  GetFileInfoResponseProto req;
+  GetFileInfoRequestProto req;
   auto resp = std::make_shared<GetFileInfoResponseProto>();
 
   Status s = namenode_.GetFileInfo(&req, resp);
@@ -141,25 +142,39 @@ int FileSystemImpl::stat(const std::string &path, struct stat *buf){
     return -1;
   }
 
+  memset(buf, 0, sizeof(struct stat));
 
-  buf->dev_t     st_dev;      /* ID of device containing file */
-  buf->ino_t     = 1;         /* inode number */
+  if(resp->has_fs()) {
+    //have HdfsFileStatusProto
+    auto file_status = resp->fs();
+    uint64_t file_length = file_status.length();
+    std::string owner = file_status.owner();
+    std::string group = file_status.group();
 
-  const FsPermissionProto& = resp->fs_permission_proto();
+    auto perms = file_status.permission();
+
+
+  }
+
+  //const FsPermissionProto& hdfs_permissions = resp->fs_permission_proto();
   
-  buf->mode_t    st_mode;     /* protection */
-  buf->nlink_t   = 1;         /* number of hard links */
+  //buf->dev_t     st_dev;      /* ID of device containing file */
+  //buf->ino_t     = 1;         /* inode number */
+  
+  //buf->mode_t    st_mode;     /* protection */
+  //buf->nlink_t   = 1;         /* number of hard links */
 
-  std::string owner = resp->owner();
-  buf->uid_t     st_uid;         /* user ID of owner */
+  //std::string owner = resp->owner();
+  //buf->uid_t     st_uid;         /* user ID of owner */
 
-  std::string group = resp->group()
-  buf->gid_t     st_gid;         /* group ID of owner */
+  //std::string group = resp->group();
+  //buf->gid_t     st_gid;         /* group ID of owner */
 
-  buf->dev_t     = 0;        /* device ID (if special file) */
-  buf->off_t     = resp->length()  //st_size;        /* total size, in bytes */
-  buf->blksize_t = 1;                  //st_blksize;     /* blocksize for filesystem I/O */
-  buf->blkcnt_t  = 1;                  //st_blocks;      /* number of 512B blocks allocated */
+  //buf->dev_t     = 0;        /* device ID (if special file) */
+  //buf->off_t     = resp->length()  //st_size;        /* total size, in bytes */
+  //buf->blksize_t = 1;                  //st_blksize;     /* blocksize for filesystem I/O */
+  //buf->blkcnt_t  = 1;                  //st_blocks;      /* number of 512B blocks allocated */
+  return 1;
 }
 
 
