@@ -75,6 +75,10 @@ void open_read_close_test(hdfsFS fs, std::string path,
                                 off_t window_max = 32 * MB);  //max offset into file
 
 
+void n_threaded_open_read_close(hdfsFS fs, std::string path, int threadcount, 
+                                size_t read_size = 128 * KB,
+                                off_t start = 0,
+                                off_t end = 64 * MB); 
 
 
 
@@ -85,6 +89,7 @@ int main(int argc, char **argv) {
     std::cout << "\t-threaded_read <threadcount> <read size> <max offset>" << std::endl;
     std::cout << "\t-threaded_seek <threadcount> <number of seeks> <max offset>" << std::endl;
     std::cout << "\t-open_read_close <read size> <number of cycles> <max offset>" << std::endl;
+    std::cout << "\t-threaded_open_read_close <threadcount> <read size> <max offset>" << std::endl;
 
     return 1;
   }
@@ -127,8 +132,19 @@ int main(int argc, char **argv) {
     int numcycles = std::atoi( argv[6] );
     int maxoffset = std::atoi( argv[7] );     
 
-
     open_read_close_test(fs, argv[3], readsize, numcycles, 0/*min offset*/, maxoffset);
+  } else if (cmd == "-threaded_open_read_close") {
+    //Start a number of threads and have them scan through a file.  Helpful for reproducing threading issues.
+    if(argc != 8) {
+      std::cerr << "usage ./perf_tests <host> <port> <file> -threaded_open_read_close <thread count> <read size> <max offset>" << std::endl;
+      return 1;
+    }
+
+    int threadcount = std::atoi( argv[5] );
+    int readsize    = std::atoi( argv[6] );
+    int maxoffset   = std::atoi( argv[7] );
+
+    n_threaded_open_read_close(fs, argv[3], threadcount, readsize, 0/*min offset*/, maxoffset);
   } else {
     std::cerr << "command " << cmd << " not recognized" << std::endl;
   }
@@ -355,6 +371,32 @@ void open_read_close_test(hdfsFS fs, std::string path, size_t read_size, unsigne
 }
 
 
+void n_threaded_open_read_close(hdfsFS fs, std::string path, int threadcount, 
+                                size_t read_size,
+                                off_t start,
+                                off_t end) 
+{
+  std::cout << "hardware concurrency max is " << std::thread::hardware_concurrency() << std::endl;
 
+  std::vector<std::thread> threads;
+  auto open_read_close = [fs, path, read_size, start, end] {
+    hdfsFile file = hdfsOpenFile(fs, path.c_str(), 0, 0, 0, 0);
+    
+    scan_info info = single_threaded_linear_scan(fs, file, read_size, start, end);
+    std::cout << info.str() << std::endl;
+  
+    hdfsCloseFile(fs, file);
+  };
 
+  //spawn
+  for(int i=0; i< threadcount; i++) {
+    std::cout << "starting thread " << i << std::endl;
+    threads.push_back(std::thread(open_read_close));
+  }
 
+  //join
+  for(int i=0; i<threadcount; i++) {
+    std::cout << "joining thread " << i << std::endl;
+    threads[i].join();
+  }
+}
