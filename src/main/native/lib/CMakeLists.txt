@@ -3,4 +3,5 @@ add_subdirectory(fs)
 add_subdirectory(reader)
 add_subdirectory(rpc)
 add_subdirectory(proto)
-
+add_subdirectory(logger)
+add_subdirectory(replayer)

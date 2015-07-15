@@ -37,6 +37,7 @@
 
 #include "libhdfs++/chdfs.h"
 #include "libhdfs++/hdfs.h"
+#include "logger/LibhdfsppLog.h"
 
 #include <iostream>
 #include <string>
@@ -70,6 +71,8 @@ public:
       //reset io_service ptr to null so caller can check.  Don't want to throw.
       io_service_ = NULL;
     }
+
+    LOG_START();
   }
 
   ~Executor() {
@@ -156,6 +159,8 @@ int hdfsDisconnect(hdfsFS fs) {
 
 
 hdfsFile hdfsOpenFile(hdfsFS fs, const char *path, int flags, int bufferSize, short replication, int blockSize) {
+  LOG_OPEN();
+  
   //The following four params are just placeholders until write path is finished, add void so compiler doesn't complain.
   (void)flags;
   (void)bufferSize;
@@ -165,27 +170,40 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char *path, int flags, int bufferSize, sh
   //assuming we want to do a read with default settings, sufficient for now
   InputStream *isPtr = NULL;
   Status stat = fs->fileSystem->Open(path, &isPtr);
-  if(!stat.ok())
+  if(!stat.ok()) {
+    LOG_OPEN_RET(NULL); 
     return NULL;
+  }
 
   //may need to switch to scoped lock if anything in here can throw.
-  return new hdfsFile_struct(isPtr);
+  hdfsFile ret =  new hdfsFile_struct(isPtr);
+  LOG_OPEN_RET(ret);
+  return ret;
 }
 
 
 int hdfsCloseFile(hdfsFS fs, hdfsFile file) {
+  LOG_CLOSE();
   (void)fs;
-  if(NULL != file)
+  
+  if(NULL != file) {
     delete file;
-  else
+  } else {
+    LOG_CLOSE_RET(-1);
     return -1;
+  }
+    
+  LOG_CLOSE_RET(0);
   return 0;
 }
 
 
 size_t hdfsPread(hdfsFS fs, hdfsFile file, off_t position, void *buf, size_t length) {
+  LOG_READ();
+  
   if(NULL == fs || NULL == file) {
     //possibly set errno here
+    LOG_READ_RET(0);
     return 0;   
   }
 
@@ -193,9 +211,11 @@ size_t hdfsPread(hdfsFS fs, hdfsFile file, off_t position, void *buf, size_t len
   Status stat = file->inputStream->PositionRead(buf, length, position, &readBytes);
   if(!stat.ok()) {
     //possibly set errno here
+    LOG_READ_RET(0);
     return 0;
   }
 
+  LOG_READ_RET(readBytes);
   return readBytes;
 }
 
