@@ -26,6 +26,8 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
 
 namespace hdfs {
 
@@ -133,50 +135,73 @@ int FileSystemImpl::stat(const std::string &path, struct stat *buf){
   using ::hadoop::hdfs::GetFileInfoResponseProto;
   using ::hadoop::hdfs::FsPermissionProto;
 
+  if (buf == nullptr) {
+    //TODO: set errno
+    return -1;
+  }
+
   GetFileInfoRequestProto req;
   auto resp = std::make_shared<GetFileInfoResponseProto>();
+  req.set_src(path);
 
-  Status s = namenode_.GetFileInfo(&req, resp);
-  if (!s.ok()) {
-    //todo: set errno
+  Status stat = namenode_.GetFileInfo(&req, resp);
+  if (!stat.ok() || !resp->has_fs()) {
+    //TODO: set errno
     return -1;
   }
 
   memset(buf, 0, sizeof(struct stat));
+  auto file_status = resp->fs();
 
-  if(resp->has_fs()) {
-    //have HdfsFileStatusProto
-    auto file_status = resp->fs();
-    uint64_t file_length = file_status.length();
-    std::string owner = file_status.owner();
-    std::string group = file_status.group();
+  //dev_t     st_dev;       /* ID of device containing file */
+  //ino_t     st_ino;       /* inode number */
+  
+  buf->st_mode = file_status.permission().perm();
 
-    auto perms = file_status.permission();
-
-
+  switch (file_status.filetype()) {
+    case ::hadoop::hdfs::HdfsFileStatusProto_FileType_IS_DIR:
+      buf->st_mode |= S_IFDIR;
+      break;
+    case ::hadoop::hdfs::HdfsFileStatusProto_FileType_IS_FILE:
+      buf->st_mode |= S_IFREG;
+      break;
+    case ::hadoop::hdfs::HdfsFileStatusProto_FileType_IS_SYMLINK:
+      buf->st_mode |= S_IFLNK;
+      break;
+    default:
+      break; 
   }
 
-  //const FsPermissionProto& hdfs_permissions = resp->fs_permission_proto();
+  buf->st_nlink = 1;         /* number of hard links */
+ 
+  //HDFS records owner's name only. But that name comes from specified
+  //user when file is created. So set the uid from Linux if name literal
+  //matches, set to 0 otherwise.
+  struct passwd *linuxUserInfo = ::getpwnam(file_status.owner().c_str());
+  if (linuxUserInfo) {
+    buf->st_uid = linuxUserInfo->pw_uid;
+  }
+
+  //Similar to the uid
+  struct group *group = ::getgrgid(::getgid());
+  if (group) {
+    if (std::string(group->gr_name) == file_status.group()) {
+      buf->st_gid = group->gr_gid; 
+    }
+  } 
   
-  //buf->dev_t     st_dev;      /* ID of device containing file */
-  //buf->ino_t     = 1;         /* inode number */
+  //dev_t     st_rdev;    /* device ID (if special file) */
+  buf->st_size = file_status.length();
+  buf->st_blksize = file_status.blocksize();
+  //blkcnt_t  st_blocks;  /* number of 512B blocks allocated */
   
-  //buf->mode_t    st_mode;     /* protection */
-  //buf->nlink_t   = 1;         /* number of hard links */
+  //HDFS records time in milliseconds
+  buf->st_atime = (time_t)(file_status.access_time() / 1000);
+  buf->st_mtime = (time_t)(file_status.modification_time() / 1000);
+  //time_t    st_ctime;   /* time of last status change */
 
-  //std::string owner = resp->owner();
-  //buf->uid_t     st_uid;         /* user ID of owner */
-
-  //std::string group = resp->group();
-  //buf->gid_t     st_gid;         /* group ID of owner */
-
-  //buf->dev_t     = 0;        /* device ID (if special file) */
-  //buf->off_t     = resp->length()  //st_size;        /* total size, in bytes */
-  //buf->blksize_t = 1;                  //st_blksize;     /* blocksize for filesystem I/O */
-  //buf->blkcnt_t  = 1;                  //st_blocks;      /* number of 512B blocks allocated */
-  return 1;
+  return 0;
 }
-
 
 
 }
