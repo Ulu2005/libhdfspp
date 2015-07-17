@@ -16,6 +16,9 @@
  * limitations under the License.
  */
 
+// This version of log replayer does not print bandwidth information
+// and it performs all file operations sequentially.
+
 #include <map>
 #include <chrono>
 #include <iostream>
@@ -69,7 +72,8 @@ int main(int argc, const char* argv[]) {
         handleRead(*msg);
         break;
       default:
-        ;
+        std::cerr << "#" << (index + 1); 
+        std::cerr << ": Unknown file operation." << std::endl;
     } 
 
     index++;

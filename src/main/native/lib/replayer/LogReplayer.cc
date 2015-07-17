@@ -16,6 +16,11 @@
  * limitations under the License.
  */
 
+// Log replayer replays file operations by reading log file. All
+// open and close operations would be done in main thread. Other
+// operations will be performed in seperate threads. And there is a
+// background thread printing bandwidth information every second.
+
 #include <map>
 #include <mutex>
 #include <chrono>
@@ -27,7 +32,7 @@
 #include "LogReader.h"
 #include "CmlParser.h"
 
-//constants
+//constant
 static const unsigned MAX_THREADS = std::thread::hardware_concurrency() * 2;
 static const int MB = 1024 * 1024;
 
@@ -91,7 +96,8 @@ int main(int argc, const char* argv[]) {
         jobs.push_back(std::move(msg));
         break;
       default:
-        ;
+        std::cerr << "#" << (index + 1); 
+        std::cerr << ": Unknown file operation." << std::endl;
     } 
 
     index++;
@@ -197,14 +203,21 @@ void handleOpen(const hadoop::hdfs::log &msg)
       (int)msg.argument(2), 
       (short)msg.argument(3), 
       (int)msg.argument(4));
-
+  
+  // Using thread id as key to temporarily store file here is safe.
+  // In the same thread all operations are sequential, thus a OPEN
+  // must be followed by an OPEN_RET. It's impossible in a single
+  // thread to have multiple OPENs on halfway without return. In
+  // addition, the value of thread id can hardly be equal to an
+  // address value. So we don't need to worry about file being
+  // overwritten by other things.
   files[msg.threadid()] = file;
 }
 
 void handleOpenRet(const hadoop::hdfs::log &msg)
 {
   files[msg.argument(0)] = files[msg.threadid()];
-  files.erase(msg.threadid());
+  files.erase(msg.threadid());// safely delete the item
 }
 
 void handleRead(const hadoop::hdfs::log &msg)

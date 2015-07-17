@@ -31,7 +31,7 @@ namespace hdfs
 class Logger
 {
  public:
-  typedef enum {        //function type of different file operation
+  typedef enum {        //type of different file operation
     OPEN,
     OPEN_RET,
     CLOSE,

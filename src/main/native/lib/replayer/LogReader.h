@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 
-//This class works as a reader to log, which includes a log file and 
-//a index file 
+// This class works as a reader to log, which includes a log file and 
+// a index file.
 
 #ifndef LIBHDFSPP_READER_H_
 #define LIBHDFSPP_READER_H_ 

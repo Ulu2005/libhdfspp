@@ -16,6 +16,13 @@
  * limitations under the License.
  */
 
+// To use the logger, user should use the macros defined in this
+// file rather than passing flags to logger's function. This would make
+// logging easy to control since logger can be easily turned on/off
+// by setting 'LOG_ENABLE' macro here. Using macros also make code more
+// clean and lessen the burden of user to keep function arguments in 
+// right order.
+
 #ifndef LIBHDFSPP_LOG_H_
 #define LIBHDFSPP_LOG_H_
 

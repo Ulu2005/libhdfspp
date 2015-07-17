@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+// A simple command line parser.
+
 #include <string>
 #include <map>
 #include <vector>
