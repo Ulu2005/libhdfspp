@@ -68,8 +68,12 @@ int main(int argc, const char* argv[]) {
       case hadoop::hdfs::log_FuncType_CLOSE:
         handleClose(*msg);
         break;
+      case hadoop::hdfs::log_FuncType_CLOSE_RET:
+        break;
       case hadoop::hdfs::log_FuncType_READ:
         handleRead(*msg);
+        break;
+      case hadoop::hdfs::log_FuncType_READ_RET:
         break;
       default:
         std::cerr << "#" << (index + 1); 

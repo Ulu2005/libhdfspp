@@ -92,8 +92,12 @@ int main(int argc, const char* argv[]) {
         handleJobs(); //handle all jobs in vector and join the work threads here
         handleClose(*msg);
         break;
+      case hadoop::hdfs::log_FuncType_CLOSE_RET:
+        break;
       case hadoop::hdfs::log_FuncType_READ:
         jobs.push_back(std::move(msg));
+        break;
+      case hadoop::hdfs::log_FuncType_READ_RET:
         break;
       default:
         std::cerr << "#" << (index + 1); 
