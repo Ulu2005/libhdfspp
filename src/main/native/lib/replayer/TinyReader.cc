@@ -41,15 +41,15 @@ void countOp(const hadoop::hdfs::log &msg);
 
 int main(int argc, const char* argv[]) {
   hdfs::CmlParser cml(argc, argv);
-  if (cml.getArgSize() != 2) {
+  if (cml.getArgSize() != 1) {
     std::cout << "Usage: " << cml.getProgName() << " "
-      << "[-v|--verbose] <log file> <index file>" << std::endl;
+      << "[-v|--verbose] <log file>" << std::endl;
     return 0;
   }
 
   bool verbose = cml.getFlag("v") || cml.getFlag("verbose");
 
-  hdfs::LogReader reader(cml.getArg(0).c_str(), cml.getArg(1).c_str());
+  hdfs::LogReader reader(cml.getArg(0).c_str());
   int index(0);
   std::unique_ptr<hadoop::hdfs::log> msg;
 

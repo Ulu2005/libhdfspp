@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <google/protobuf/io/coded_stream.h>
 
 #include "Logger.h"
 
@@ -33,18 +34,12 @@ Logger ioLogger;
 Logger::Logger()
   : mutex_()
   , current_day_(-1)
-  , indexFile_(nullptr)
   , logFile_(nullptr)
 {
 }
 
 Logger::~Logger()
 {
-  if (indexFile_ != nullptr) {
-    fclose(indexFile_);
-    indexFile_ = nullptr;
-  }
-
   if (logFile_ != nullptr) {
     logFile_->Close();
     delete logFile_;
@@ -52,25 +47,16 @@ Logger::~Logger()
   }
 }
 
-bool Logger::startLog(const char* logFile, const char* indexFile)
+bool Logger::startLog(const char* logFile)
 {
-  if (!logFile || !indexFile) {
-    return false;
-  }
+  if (!logFile) return false;
 
   mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-
   int logFileFd = open(logFile, O_CREAT | O_WRONLY | O_TRUNC, mode);
-  if (logFileFd == -1) {
-    return false;
-  } 
+  
+  if (logFileFd == -1) return false;
   logFile_ = new pbio::FileOutputStream(logFileFd);
-
-  indexFile_ = fopen(indexFile, "w+"); 
-  if (indexFile_ == NULL) {
-    return false;
-  }
-
+  
   return true;
 }
 
@@ -119,22 +105,31 @@ bool Logger::logMessage(FuncType type, va_list &va)
   }
   va_end(va);
 
-  //write log message and message size onto disk
-  int size = msg.ByteSize();
-
   std::lock_guard<std::mutex> lock(mutex_);
-  if (fprintf(indexFile_, "%d\n", size) <= 0) {
-    std::cerr << "failed to write message size." << std::endl;
-    return false;
-  }
-  fflush(indexFile_);
 
-  if (!msg.SerializeToZeroCopyStream(logFile_)) {
-    std::cerr << "failed to serialize log message." << std::endl;
-    return false;
-  }
-  logFile_->Flush(); 
+  if (!writeDelimitedLog(msg)) return false;
+  logFile_->Flush();
+  
+  return true;
+}
 
+bool Logger::writeDelimitedLog(::hadoop::hdfs::log &msg)
+{  
+  const int size = msg.ByteSize();
+  pbio::CodedOutputStream output(logFile_);
+
+  output.WriteVarint32(size);
+  uint8_t* buffer = output.GetDirectBufferForNBytesAndAdvance(size);
+
+  if (buffer != nullptr) {
+    msg.SerializeWithCachedSizesToArray(buffer); 
+  } else {
+    msg.SerializeWithCachedSizes(&output);
+    if (output.HadError()) return false;
+  }
+  
+  // The CodedOutputStream's destructor will set the underlying stream's
+  // position to where last byte is wrote.
   return true;
 }
 

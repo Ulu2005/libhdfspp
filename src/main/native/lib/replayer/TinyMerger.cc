@@ -28,28 +28,23 @@
 #include <unistd.h>
 
 #include "LogReader.h"
+#include "logger/Logger.h"
 
-#define LOGNAME "log_merged.log"
-#define INDEXNAME "index_mergerd.log"
+#define LOG_NAME "libhdfspp_merged.log"
 
 using namespace hdfs;
 
-static FILE* newIndexFile = nullptr;
-static ::google::protobuf::io::FileOutputStream* newLogFile = nullptr;
+static Logger logger;
 
-std::vector<std::string> getFiles(DIR* dir);
-std::string getPid(const std::string str);
-std::vector<LogReader> getReaders(const char* parent, 
-    const std::vector<std::string> files);
+std::vector<LogReader> getReaders(DIR* dir, std::string parent);
 void mergeLog(std::vector<LogReader> &readers);
-int findMinMsg(const std::vector<std::unique_ptr<hadoop::hdfs::log>> &msgs);
+int findOldestMsg(const std::vector<std::unique_ptr<hadoop::hdfs::log>> &msgs);
 
 int main(int argc, char *argv[])
 {
   if (argc != 3) {
-    std::cout << "Usage: " << argv[0] << " "
-      << "<log file directory> " 
-      << "<output file directory>" << std::endl;
+    std::cout << "Usage: " << argv[0] << " <input log file directory> ";
+    std::cout << "<merged log file directory>" << std::endl;
     return 0;
   } 
 
@@ -60,27 +55,23 @@ int main(int argc, char *argv[])
     return 0; 
   }
 
-  std::string outDir(argv[2]), outIndex, outLog; 
-  if (outDir.at(outDir.size() - 1) != '/') {
-    outDir.append("/");
-  }
+  std::string inDir(argv[1]), outDir(argv[2]), output; 
+  auto append_slash = [](std::string &str) {
+    if (str.at(str.size() - 1) != '/') str.append("/");
+  };
+  append_slash(inDir);
+  append_slash(outDir);
 
-  outIndex = outDir + INDEXNAME;
-  outLog = outDir + LOGNAME;
+  std::vector<LogReader> readers = getReaders(dir, inDir);
 
-  mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-  int logFileFd = open(outLog.c_str(), O_CREAT | O_WRONLY | O_TRUNC, mode);
-  newIndexFile = fopen(outIndex.c_str(), "w+");
-  if ((logFileFd == -1) || (newIndexFile == NULL)) {
+  output = outDir + LOG_NAME;
+  if (!logger.startLog(output.c_str())) {
     std::cout << "Failed to create merged log file." << std::endl;
     return 0; 
   }
 
-  newLogFile = new ::google::protobuf::io::FileOutputStream(logFileFd);
-
   //merge log files 
   std::chrono::time_point<std::chrono::system_clock> start, end;
-  std::vector<LogReader> readers = getReaders(argv[1], getFiles(dir));
 
   std::cout << "Start to merge log files." << std::endl;
   start = std::chrono::system_clock::now();
@@ -91,10 +82,6 @@ int main(int argc, char *argv[])
   for (auto r : readers) {
     r.close();
   }
-
-  fclose(newIndexFile);
-  newLogFile->Close();
-  delete newLogFile;
   closedir(dir);
 
   end = std::chrono::system_clock::now();
@@ -105,60 +92,24 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-/* Put all file names in a folder into a vector */
-std::vector<std::string> getFiles(DIR* dir)
+/* Get readers for all log file in directory */
+std::vector<LogReader> getReaders(DIR* dir, std::string parent)
 {
   std::vector<std::string> files;
+  std::vector<LogReader> readers;
   struct dirent* entry;
 
   while ((entry = readdir(dir)) != NULL) {
     std::string name(entry->d_name);
 
-    if (name.find("log_") != std::string::npos) {
-      files.push_back(name); 
-    } else if (name.find("index_") != std::string::npos) {
-      files.push_back(name); 
+    if (name.find(".log") != std::string::npos) {
+      files.push_back(name);
+      std::cout << "Reading " << name << std::endl; 
     }
   }
-
-  return files; 
-}
-
-/* Extract pid from string with format "log_xxxx.log" and "index_xxxx.log" */
-std::string getPid(const std::string str)
-{
-  std::size_t head;
-  if ((head = str.find("log_")) == std::string::npos) {
-    head = str.find("index_");
-    head += std::strlen("index_"); 
-  } else {
-    head += std::strlen("log_");
-  }
-
-  return str.substr(head, (str.size() - std::strlen(".log") - head));
-}
-
-/* Generate readers by pairing index file and log file in file name vector */
-std::vector<LogReader> getReaders(const char* parent, 
-    const std::vector<std::string> files)
-{
-  std::string path(parent);
-  if (path.at(path.length() - 1) != '/') { //last character in path
-    path.append("/"); 
-  }
-
-  std::string index, log;
-  std::vector<LogReader> readers;
-  std::set<std::string> pids;
-
-  for (auto filename : files) { //collect pid
-    pids.insert(getPid(filename));   
-  }
-
-  for (auto pid : pids) { //build complete path and create LogReader
-    index = path + "index_" + pid + ".log"; 
-    log = path + "log_" + pid + ".log";
-    readers.push_back(LogReader(log.c_str(), index.c_str()));
+  
+  for (auto filename : files) {
+    readers.push_back(LogReader((parent + filename).c_str()));
   }
 
   return readers;
@@ -174,30 +125,18 @@ void mergeLog(std::vector<LogReader> &readers)
 
   while(true) {
     // find min msg
-    int index = findMinMsg(msgs);
+    int index = findOldestMsg(msgs);
     if (index == -1) {
       break;
     }
 
-    // output min msg
-    int size = msgs.at(index)->ByteSize();
-    if (fprintf(newIndexFile, "%d\n", size) <= 0) {
-      std::cerr << "Failed to write index file." << std::endl;
-      break;
-    }
-
-    if (!msgs.at(index)->SerializeToZeroCopyStream(newLogFile)) {
-      std::cerr << "Failed to write log file." << std::endl;
-      break;
-    }
-
-    // get a new msg from same reader
-    msgs.at(index) = readers.at(index).next();
+  logger.writeDelimitedLog(*msgs.at(index));
+  msgs.at(index) = readers.at(index).next();
   }
 }
 
-/* Find index of message with min time, retur -1 if all messages are nullptr */
-int findMinMsg(const std::vector<std::unique_ptr<hadoop::hdfs::log>> &msgs)
+/* Find index of messages with min time, retur -1 if all messages are nullptr */
+int findOldestMsg(const std::vector<std::unique_ptr<hadoop::hdfs::log>> &msgs)
 {
   int min = -1;
   int min_date = -1;

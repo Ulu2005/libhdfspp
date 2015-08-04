@@ -34,18 +34,17 @@ class LogReader
 {
  public:
   LogReader();
-  LogReader(const char* logPath, const char* indexPath);
+  LogReader(const char* logPath);
   virtual ~LogReader();
 
   void close(); 
   bool isEOF();
-  bool setPath(const char* logPath, const char* indexPath); 
+  bool setPath(const char* logPath); 
   std::unique_ptr<hadoop::hdfs::log> next();
 
  private:
   bool isOK_;
   bool isEOF_;
-  FILE* indexFile_; 
   ::google::protobuf::io::FileInputStream* logFile_;
 };
 

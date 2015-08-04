@@ -43,15 +43,15 @@ class Logger
   Logger ();
   virtual ~Logger ();
 
-  bool startLog(const char* logFile, const char* indexFile);
+  bool startLog(const char* logFile);
   bool logMessage(FuncType type, va_list &va);
+  bool writeDelimitedLog(::hadoop::hdfs::log &msg);
 
  private:
   long getTime();       //get time in nanosecond and refresh current day
 
   std::mutex mutex_;
   int current_day_;
-  FILE* indexFile_;
   ::google::protobuf::io::FileOutputStream* logFile_;
 };
 

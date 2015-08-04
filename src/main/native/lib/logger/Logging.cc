@@ -27,19 +27,15 @@ using namespace hdfs;
 // static initialization
 extern Logger ioLogger;
 
-std::string Logging::indexFilePath("");
 std::string Logging::logFilePath("");
 bool Logging::failed = false;
 
-void Logging::startLog(const char* logFile, const char* indexFile)
+void Logging::startLog(const char* logFile)
 {
   logFilePath = logFile;
-  indexFilePath = indexFile;
-
   appendPid(logFilePath);
-  appendPid(indexFilePath);
 
-  if (!ioLogger.startLog(logFilePath.c_str(), indexFilePath.c_str())) {
+  if (!ioLogger.startLog(logFilePath.c_str())) {
     std::cerr << "Failed to start IO logger." << std::endl;
     failed = true;
   }

@@ -39,16 +39,16 @@ void handleClose(const hadoop::hdfs::log &msg);
 int main(int argc, const char* argv[]) {
   hdfs::CmlParser cml(argc, argv);
 
-  if (cml.getArgSize() != 4) {
+  if (cml.getArgSize() != 3) {
     std::cout << "Usage: " << cml.getProgName();
-    std::cout << " [--parent-folder=<path>] <log file> <index file>";
+    std::cout << " [--parent-folder=<path>] <log file>";
     std::cout << " <host> <port>" << std::endl;
     return 0;
   } 
   cml.getOption("parent-folder", parent_folder);
 
-  hdfs::LogReader reader(cml.getArg(0).c_str(), cml.getArg(1).c_str());
-  fs = hdfsConnect(cml.getArg(2).c_str(), std::atoi(cml.getArg(3).c_str())); 
+  hdfs::LogReader reader(cml.getArg(0).c_str());
+  fs = hdfsConnect(cml.getArg(1).c_str(), std::atoi(cml.getArg(2).c_str())); 
 
   int index(0);
   std::unique_ptr<hadoop::hdfs::log> msg;

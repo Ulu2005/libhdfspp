@@ -5,6 +5,6 @@ add_executable(replayer LogReplayer.cc)
 add_executable(replayer_seq LogReplayer_seq.cc)
 
 target_link_libraries(treader lreader proto ${PROTOBUF_LIBRARIES})
-target_link_libraries(tmerger lreader proto ${PROTOBUF_LIBRARIES})
+target_link_libraries(tmerger lreader iologger proto ${PROTOBUF_LIBRARIES})
 target_link_libraries(replayer fs iologger rpc reader lreader common proto ${PROTOBUF_LIBRARIES} ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(replayer_seq fs iologger rpc reader lreader common proto ${PROTOBUF_LIBRARIES} ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})

@@ -32,11 +32,10 @@ namespace hdfs {
 
 #define LOG_ENABLE true
 #define LOG_PATH "PUT_LOG_PATH_HERE"
-#define INDEX_PATH "PUT_INDEX_PATH_HERE"
 
 #define LOG_START() do {\
   if (LOG_ENABLE)\
-  Logging::startLog(LOG_PATH, INDEX_PATH);\
+  Logging::startLog(LOG_PATH);\
 } while(0)
 
 #define LOG_OPEN() do {\

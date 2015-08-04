@@ -32,13 +32,12 @@ class Logging
   Logging ();
   virtual ~Logging ();
 
-  static void startLog(const char* logFile, const char* indexFile);
+  static void startLog(const char* logFile);
   static void logMessage(Logger::FuncType type, ...);
 
  private:
   static void appendPid(std::string &str);
 
-  static std::string indexFilePath;
   static std::string logFilePath;
   static bool failed;
 };
